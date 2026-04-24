@@ -70,7 +70,7 @@ export async function createUserHandler(req, res, next) {
 
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await createUser({
-      username: username.trim(),
+      username: username.trim().toLowerCase(),
       passwordHash,
       fullName: fullName.trim(),
       roleId,

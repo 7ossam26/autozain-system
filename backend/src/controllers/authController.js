@@ -52,7 +52,7 @@ export async function login(req, res, next) {
       });
     }
 
-    const user = await findUserByUsername(username.trim());
+    const user = await findUserByUsername(username.trim().toLowerCase());
 
     if (!user || !user.isActive) {
       return res.status(401).json({
