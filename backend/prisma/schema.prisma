@@ -1,0 +1,293 @@
+// AutoZain — Prisma schema
+// Source of truth for the database per MASTER_PLAN.md §3.
+// All money fields are Int (whole EGP). UUID primary keys. Native Postgres enums.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum UserStatus {
+  available
+  busy
+  offline
+}
+
+enum Transmission {
+  automatic
+  manual
+}
+
+enum FuelType {
+  benzine
+  diesel
+  gas
+  electric
+  hybrid
+}
+
+enum CarStatus {
+  available
+  deposit_paid
+  sold
+  withdrawn
+}
+
+enum ContactRequestStatus {
+  pending
+  accepted
+  rejected
+  expired
+  completed
+}
+
+enum ContactOutcome {
+  sold
+  interested
+  no_answer
+  cancelled
+}
+
+enum QueueStatus {
+  waiting
+  assigned
+  expired
+}
+
+enum DepositStatus {
+  pending
+  confirmed
+  rejected
+  refunded
+}
+
+// -----------------------------------------------------------------------------
+// Models
+// -----------------------------------------------------------------------------
+
+model User {
+  id               String     @id @default(uuid())
+  username         String     @unique
+  passwordHash     String     @map("password_hash")
+  fullName         String     @map("full_name")
+  roleId           String     @map("role_id")
+  status           UserStatus @default(offline)
+  avatarUrl        String?    @map("avatar_url")
+  pushSubscription Json?      @map("push_subscription")
+  maxConcurrent    Int        @default(1) @map("max_concurrent")
+  isActive         Boolean    @default(true) @map("is_active")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  createdBy        String?    @map("created_by")
+
+  role              Role              @relation(fields: [roleId], references: [id])
+  creator           User?             @relation("UserCreator", fields: [createdBy], references: [id])
+  createdUsers      User[]            @relation("UserCreator")
+  carsAdded         Car[]             @relation("CarAddedBy")
+  contactRequests   ContactRequest[]  @relation("ContactRequestEmployee")
+  queueAssigned     BuyerQueue[]      @relation("QueueAssignee")
+  salesAsEmployee   Sale[]            @relation("SaleEmployee")
+  salesClosed       Sale[]            @relation("SaleClosedBy")
+  depositsSubmitted DepositRequest[]  @relation("DepositEmployee")
+  depositsConfirmed DepositRequest[]  @relation("DepositConfirmedBy")
+  auditEntries      AuditLog[]        @relation("AuditPerformedBy")
+  moduleAccessEdits ModuleAccess[]    @relation("ModuleAccessUpdatedBy")
+  settingEdits      Setting[]         @relation("SettingUpdatedBy")
+
+  @@map("users")
+}
+
+model Role {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  displayNameAr  String   @map("display_name_ar")
+  isSystem       Boolean  @default(false) @map("is_system")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  users         User[]
+  moduleAccess  ModuleAccess[]
+
+  @@map("roles")
+}
+
+model ModuleAccess {
+  id         String   @id @default(uuid())
+  roleId     String   @map("role_id")
+  moduleKey  String   @map("module_key")
+  isEnabled  Boolean  @default(false) @map("is_enabled")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  updatedBy  String?  @map("updated_by")
+
+  role    Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  updater User? @relation("ModuleAccessUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([roleId, moduleKey])
+  @@map("module_access")
+}
+
+model Car {
+  id                  String        @id @default(uuid())
+  carType             String        @map("car_type")
+  model               String
+  listingPrice        Int           @map("listing_price")
+  licenseInfo         String        @map("license_info")
+  transmission        Transmission
+  plateNumber         String        @map("plate_number")
+  odometer            Int
+  color               String?
+  fuelType            FuelType?     @map("fuel_type")
+  additionalInfo      String?       @map("additional_info")
+  inspectionImageUrl  String?       @map("inspection_image_url")
+  status              CarStatus     @default(available)
+  images              Json          @default("[]")
+  sellerName          String        @map("seller_name")
+  sellerPhone         String        @map("seller_phone")
+  sellerResidence     String        @map("seller_residence")
+  sellerLicenseFront  String?       @map("seller_license_front")
+  sellerLicenseBack   String?       @map("seller_license_back")
+  addedBy             String        @map("added_by")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  addedByUser      User             @relation("CarAddedBy", fields: [addedBy], references: [id])
+  contactRequests  ContactRequest[]
+  queueEntries     BuyerQueue[]
+  sales            Sale[]
+  deposits         DepositRequest[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("cars")
+}
+
+model ContactRequest {
+  id                String               @id @default(uuid())
+  buyerName         String               @map("buyer_name")
+  buyerPhone        String               @map("buyer_phone")
+  employeeId        String               @map("employee_id")
+  interestedCarId   String?              @map("interested_car_id")
+  status            ContactRequestStatus @default(pending)
+  acceptedAt        DateTime?            @map("accepted_at")
+  completedAt       DateTime?            @map("completed_at")
+  outcome           ContactOutcome?
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  employee       User  @relation("ContactRequestEmployee", fields: [employeeId], references: [id])
+  interestedCar  Car?  @relation(fields: [interestedCarId], references: [id])
+
+  @@index([employeeId, status])
+  @@index([createdAt])
+  @@map("contact_requests")
+}
+
+model BuyerQueue {
+  id                 String      @id @default(uuid())
+  buyerName          String      @map("buyer_name")
+  buyerPhone         String      @map("buyer_phone")
+  interestedCarId    String?     @map("interested_car_id")
+  status             QueueStatus @default(waiting)
+  assignedEmployeeId String?     @map("assigned_employee_id")
+  assignedAt         DateTime?   @map("assigned_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  assignedEmployee User? @relation("QueueAssignee", fields: [assignedEmployeeId], references: [id])
+  interestedCar    Car?  @relation(fields: [interestedCarId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("buyer_queue")
+}
+
+model Sale {
+  id                  String   @id @default(uuid())
+  carId               String   @map("car_id")
+  employeeId          String   @map("employee_id")
+  closedBy            String   @map("closed_by")
+  finalSalePrice      Int      @map("final_sale_price")
+  sellerReceived      Int      @map("seller_received")
+  dealershipRevenue   Int      @map("dealership_revenue")
+  employeeCommission  Int      @default(0) @map("employee_commission")
+  depositAmount       Int      @default(0) @map("deposit_amount")
+  taxPercentage       Decimal  @default(0) @map("tax_percentage") @db.Decimal(5, 2)
+  taxAmount           Int      @default(0) @map("tax_amount")
+  buyerName           String   @map("buyer_name")
+  buyerPhone          String   @map("buyer_phone")
+  paymentMethod       String?  @map("payment_method")
+  notes               String?
+  saleDate            DateTime @map("sale_date")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  car          Car  @relation(fields: [carId], references: [id])
+  employee     User @relation("SaleEmployee", fields: [employeeId], references: [id])
+  closedByUser User @relation("SaleClosedBy", fields: [closedBy], references: [id])
+
+  @@index([saleDate])
+  @@index([employeeId])
+  @@map("sales")
+}
+
+model DepositRequest {
+  id             String        @id @default(uuid())
+  carId          String        @map("car_id")
+  employeeId     String        @map("employee_id")
+  depositAmount  Int           @map("deposit_amount")
+  buyerName      String        @map("buyer_name")
+  buyerPhone     String        @map("buyer_phone")
+  status         DepositStatus @default(pending)
+  confirmedBy    String?       @map("confirmed_by")
+  confirmedAt    DateTime?     @map("confirmed_at")
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  car             Car   @relation(fields: [carId], references: [id])
+  employee        User  @relation("DepositEmployee", fields: [employeeId], references: [id])
+  confirmedByUser User? @relation("DepositConfirmedBy", fields: [confirmedBy], references: [id])
+
+  @@index([status])
+  @@map("deposit_requests")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  action       String
+  oldValue     Json?    @map("old_value")
+  newValue     Json?    @map("new_value")
+  performedBy  String   @map("performed_by")
+  ipAddress    String?  @map("ip_address")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  performer User @relation("AuditPerformedBy", fields: [performedBy], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([performedBy])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+model Setting {
+  id             String   @id @default(uuid())
+  key            String   @unique
+  value          String
+  descriptionAr  String   @map("description_ar")
+  category       String
+  updatedBy      String?  @map("updated_by")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  updater User? @relation("SettingUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@map("settings")
+}
