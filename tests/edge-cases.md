@@ -114,3 +114,45 @@ Living document. Seeded from [MASTER_PLAN.md](../docs/MASTER_PLAN.md) §16. Each
 - Car with no images → card shows "لا توجد صورة" placeholder; gallery shows placeholder block
 - Mobile filter drawer open + page navigation → drawer unmounts with the route; no lingering overlay
 - Toggling `numeral_system` in dashboard while a public page is open → public page reflects new system only after reload (fetched once on `PublicLayout` mount by design)
+
+## Phase 4 — Discovered During Implementation
+
+### Socket.io
+- Cookie JWT verified in `io.use` middleware; invalid/expired tokens fall through as anonymous (public room only) rather than erroring the connection
+- Anonymous connections are allowed (public visitors) so the employee list can update live without auth
+- Dashboard user logs in/out → `SocketProvider` disconnects + reconnects the singleton so the server re-joins the correct rooms with the new cookie
+- Socket connection established before `/auth/me` finishes → `SocketProvider` waits for `loading=false` to open the connection, preventing anonymous-first-then-auth race
+- `cookie-parser` package not imported in socket module → minimal inline parser avoids adding a second cookie dependency
+
+### Contact Requests
+- Request submitted while target employee's status just flipped to `busy` → controller returns `EMPLOYEE_NOT_AVAILABLE` (409) before creating the row
+- Request expires while employee is opening the accept dialog → PATCH returns `INVALID_STATE` (409); client dismisses overlay on `contact_request:timeout`
+- Two buyers submit for the same employee simultaneously → the second request still lands while status is still `available`; first acceptance flips status and wins — the second request stays `pending` until timeout sweep or employee action (document in release notes, Phase 5 may add per-employee pending cap = `max_concurrent_requests`)
+- Repeat notification fires after 60s only if the request is still `pending` and the `notification_repeat` setting is `true`
+- Timeout sweeper runs every 15s and uses the latest `request_timeout_minutes` setting from cache — changes to the setting take effect on the next sweep without a restart
+- Session ended → `tryAssignFromQueue` pulls the oldest `waiting` buyer and creates a fresh contact request + emits `queue:assigned` + `contact_request:new`
+
+### Queue
+- Buyer tries to join queue while at least one employee is available → controller returns `EMPLOYEES_AVAILABLE` (409) to nudge them back to the employees page
+- Queue auto-assign happens on: `PATCH /users/me/status` → `available`, and `PATCH /contact-requests/:id/complete` — both fire-and-forget; failures are logged but don't affect the primary response
+- Queue entry expired while auto-assign runs → the `.catch(()=>{})` prevents a crash
+
+### Push
+- `web-push` returns 410 or 404 → `users.push_subscription` is nulled out per MASTER_PLAN §13 rule 19; next login triggers resubscribe
+- VAPID keys missing from `.env` → `sendPush` returns `{ sent:false, reason:'VAPID_NOT_CONFIGURED' }`; socket events still deliver (in-app only)
+- Service Worker file updated → browsers may cache the old one; `skipWaiting` + `clients.claim` ensure the new SW activates immediately
+- Permission `denied` once → browser remembers it; banner remains dismissible but cannot re-request until user manually re-enables in browser settings
+
+### Dashboard — Employee
+- Employee tries to toggle to `offline` while an accepted session is still open → `ACTIVE_SESSION` (409) error surfaces in the toggle UI
+- Employee status `busy` is read-only in the UI — the toggle is disabled and the system sets it automatically on accept / available on complete
+- Overlay shown on page reload for any employee who already has a `pending` request (`/contact-requests/me` on mount)
+- Audio alert blocked by browser autoplay policy until first user interaction — `useAudioAlert` primes the AudioContext on `pointerdown`/`keydown`
+- `navigator.vibrate` missing (desktop) → silent fallback
+- Car status changed during active session → server emits `session:suggest_end` to the acting employee's room; the session panel shows an inline suggestion
+
+### Real-time broadcasts
+- Public `/cars` page with active filters → new `car:added` is prepended regardless of filter match (simple behavior); Phase 5+ could filter client-side
+- `car:status_changed` to a non-`available` status → public Cars page removes it from state and decrements `total`
+- Public CarDetail currently viewing a car that just got sold → error banner replaces the detail UI rather than 500
+- Settings updated via UI → `settings:updated` emitted only to `dashboard` room except `numeral_system` and `buyer_can_attach_car` which are public-visible

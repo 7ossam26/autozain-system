@@ -5,6 +5,7 @@ import { publicApi } from '../../services/publicApi.js';
 import { formatEGP, formatKm } from '../../utils/formatters.js';
 import { useFavorites } from '../../hooks/useFavorites.js';
 import ImageGallery from '../../components/shared/ImageGallery.jsx';
+import { useSocketEvent } from '../../context/SocketContext.jsx';
 
 const FUEL_LABELS = {
   benzine: 'بنزين', diesel: 'ديزل', gas: 'غاز', electric: 'كهرباء', hybrid: 'هايبرد',
@@ -31,6 +32,23 @@ export default function CarDetail() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
+  }, [id]);
+
+  // Real-time — if this car is no longer available, surface the 404 state.
+  useSocketEvent('car:status_changed', ({ carId, newStatus }) => {
+    if (carId === id && newStatus !== 'available') {
+      setError('العربية اتباعت أو اتسحبت. جرّب عربية تانية.');
+      setCar(null);
+    }
+  }, [id]);
+  useSocketEvent('car:removed', ({ carId }) => {
+    if (carId === id) {
+      setError('العربية اتحذفت أو اتسحبت. جرّب عربية تانية.');
+      setCar(null);
+    }
+  }, [id]);
+  useSocketEvent('car:updated', (updatedCar) => {
+    if (updatedCar.id === id) setCar((prev) => ({ ...prev, ...updatedCar }));
   }, [id]);
 
   if (loading) {

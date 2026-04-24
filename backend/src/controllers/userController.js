@@ -1,10 +1,14 @@
 import bcrypt from 'bcrypt';
 import {
   listUsers, findUserById, createUser, updateUser,
-  updateUserPassword, deleteUser,
+  updateUserPassword, deleteUser, setUserStatus,
+  listEmployeesForMonitor,
 } from '../repositories/userRepository.js';
 import { listRoles, findRoleByName } from '../repositories/roleRepository.js';
 import { logAudit } from '../utils/auditLogger.js';
+import { emitToAll } from '../socket/index.js';
+import { tryAssignFromQueue } from '../services/queueService.js';
+import { prisma } from '../config/db.js';
 
 function formatUser(user) {
   return {
@@ -162,6 +166,80 @@ export async function resetPasswordHandler(req, res, next) {
     });
 
     return res.json({ success: true, data: null });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PATCH /users/me/status — employee self-toggle between 'available' and 'offline'.
+export async function updateMyStatus(req, res, next) {
+  try {
+    const { status } = req.body ?? {};
+    if (!['available', 'offline'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'الحالة لازم تكون available أو offline',
+        error_code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const current = await findUserById(req.user.userId);
+    if (!current) {
+      return res.status(404).json({ success: false, message: 'المستخدم مش موجود', error_code: 'NOT_FOUND' });
+    }
+
+    // Can't manually go available while a session is still open — business rule.
+    if (status === 'offline') {
+      const activeSessions = await prisma.contactRequest.count({
+        where: { employeeId: current.id, status: 'accepted' },
+      });
+      if (activeSessions > 0) {
+        return res.status(409).json({
+          success: false,
+          message: 'عندك جلسة شغالة — اقفلها قبل ما تروح offline',
+          error_code: 'ACTIVE_SESSION',
+        });
+      }
+    }
+
+    await setUserStatus(current.id, status);
+
+    emitToAll('employee:status_changed', { employeeId: current.id, status });
+
+    // Becoming available → try pulling the oldest queued buyer.
+    if (status === 'available' && current.role.name === 'employee') {
+      tryAssignFromQueue(current.id).catch(() => {});
+    }
+
+    return res.json({ success: true, data: { status } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /users/monitor — team-manager view of all employees (auth + rbac).
+export async function getEmployeeMonitor(req, res, next) {
+  try {
+    const employees = await listEmployeesForMonitor();
+    // Attach current active session info per employee.
+    const activeSessions = await prisma.contactRequest.findMany({
+      where: { status: 'accepted', employeeId: { in: employees.map((e) => e.id) } },
+      select: {
+        id: true, buyerName: true, buyerPhone: true, employeeId: true, acceptedAt: true,
+        interestedCar: { select: { id: true, carType: true, model: true } },
+      },
+    });
+    const byEmployee = {};
+    for (const s of activeSessions) {
+      (byEmployee[s.employeeId] = byEmployee[s.employeeId] || []).push(s);
+    }
+    const enriched = employees.map((e) => ({
+      ...e,
+      activeSessions: byEmployee[e.id] ?? [],
+    }));
+    // Also include queue depth for context.
+    const queueWaiting = await prisma.buyerQueue.count({ where: { status: 'waiting' } });
+    return res.json({ success: true, data: { employees: enriched, queueWaiting } });
   } catch (err) {
     next(err);
   }

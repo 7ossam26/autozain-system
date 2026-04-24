@@ -7,6 +7,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import MobileNav from './MobileNav.jsx';
+import EmployeeStatusToggle from '../shared/EmployeeStatusToggle.jsx';
+import IncomingRequestOverlay from '../shared/IncomingRequestOverlay.jsx';
+import ActiveSessionPanel from '../shared/ActiveSessionPanel.jsx';
+import PushPermissionBanner from '../shared/PushPermissionBanner.jsx';
 
 const NAV_ITEMS = [
   { to: '/dashboard',           label: 'الرئيسية',      icon: LayoutDashboard, end: true,  module: null },
@@ -144,6 +148,7 @@ export default function DashboardLayout() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-3">
+            <EmployeeStatusToggle />
             <div className="text-left hidden sm:block">
               <p className="text-sm font-medium text-text-primary leading-tight">{user?.fullName}</p>
               <span className="text-xs text-text-muted">{user?.role?.displayNameAr}</span>
@@ -158,8 +163,12 @@ export default function DashboardLayout() {
 
         {/* Page content */}
         <main className="flex-1 p-6 pb-24 md:pb-6 overflow-auto">
+          <PushPermissionBanner />
+          <ActiveSessionPanel />
           <Outlet />
         </main>
+
+        <IncomingRequestOverlay />
 
         {/* Mobile bottom nav */}
         <MobileNav items={visibleItems} />

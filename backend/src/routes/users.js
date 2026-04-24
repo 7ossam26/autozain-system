@@ -5,11 +5,18 @@ import {
   getUsers, getRoles,
   createUserHandler, updateUserHandler,
   resetPasswordHandler, deleteUserHandler,
+  updateMyStatus, getEmployeeMonitor,
 } from '../controllers/userController.js';
 
 const router = Router();
 
 router.use(authMiddleware);
+
+// Self-service — any authenticated user
+router.patch('/me/status', updateMyStatus);
+
+// Monitor — employee_monitor permission (team_manager / admin)
+router.get('/monitor', rbacMiddleware('employee_monitor'), getEmployeeMonitor);
 
 router.get('/',              rbacMiddleware('users_view'),   getUsers);
 router.get('/roles',         rbacMiddleware('users_view'),   getRoles);

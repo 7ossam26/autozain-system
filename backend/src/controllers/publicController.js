@@ -1,6 +1,7 @@
 import {
   listPublicCars, findPublicCarById, getPublicFilterOptions,
 } from '../repositories/publicCarRepository.js';
+import { listEmployeesPublic } from '../repositories/userRepository.js';
 import { getSetting } from '../config/settingsCache.js';
 
 const ALLOWED_SORT = new Set(['latest', 'price_asc', 'price_desc', 'km_asc']);
@@ -67,4 +68,19 @@ export async function getPublicCarById(req, res, next) {
 export async function getPublicNumeralSystem(req, res) {
   const value = getSetting('numeral_system') ?? 'western';
   return res.json({ success: true, data: { numeral_system: value } });
+}
+
+// Employees visible to buyers: only those who are currently available or busy.
+export async function getPublicEmployees(req, res, next) {
+  try {
+    const employees = await listEmployeesPublic();
+    const buyerCanAttachCar = getSetting('buyer_can_attach_car') === true;
+    return res.json({
+      success: true,
+      data: employees,
+      meta: { buyerCanAttachCar },
+    });
+  } catch (err) {
+    next(err);
+  }
 }

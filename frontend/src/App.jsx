@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
+import { SocketProvider } from './context/SocketContext.jsx';
 import ProtectedRoute from './components/shared/ProtectedRoute.jsx';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import DashboardLayout from './components/layout/DashboardLayout.jsx';
@@ -16,10 +17,12 @@ import Cars from './pages/dashboard/Cars.jsx';
 import AddCar from './pages/dashboard/AddCar.jsx';
 import CarDetail from './pages/dashboard/CarDetail.jsx';
 import Settings from './pages/dashboard/Settings.jsx';
+import Monitor from './pages/dashboard/Monitor.jsx';
 
 export default function App() {
   return (
     <AuthProvider>
+     <SocketProvider>
       <Routes>
         {/* Public site */}
         <Route element={<PublicLayout />}>
@@ -49,11 +52,13 @@ export default function App() {
           <Route path="cars/add"          element={<AddCar />} />
           <Route path="cars/:id"          element={<CarDetail />} />
           <Route path="settings"          element={<Settings />} />
-          {/* Phase 3+: financial, reports, monitor, archive */}
+          <Route path="monitor"           element={<Monitor />} />
+          {/* Phase 5+: financial, reports, archive */}
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+     </SocketProvider>
     </AuthProvider>
   );
 }

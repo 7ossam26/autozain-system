@@ -13,6 +13,7 @@ import { loadSettingsCache } from './config/settingsCache.js';
 import apiRouter from './routes/index.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 import { initSocket } from './socket/index.js';
+import { startTimeoutSweeper } from './services/contactRequestService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
@@ -57,6 +58,7 @@ initSocket(httpServer);
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
   loadSettingsCache().then(() => {
+    startTimeoutSweeper();
     httpServer.listen(env.port, () => {
       console.log(`[autozain] API on http://localhost:${env.port}${API_PREFIX}`);
       console.log(`[autozain] env: ${env.nodeEnv}`);

@@ -1,6 +1,7 @@
 import { listSettings, findSettingByKey, updateSetting } from '../repositories/settingRepository.js';
 import { setSetting } from '../config/settingsCache.js';
 import { logAudit } from '../utils/auditLogger.js';
+import { emitToRoom } from '../socket/index.js';
 
 export async function getSettings(req, res, next) {
   try {
@@ -56,7 +57,12 @@ export async function putSetting(req, res, next) {
       ipAddress: req.ip,
     });
 
-    // TODO Phase 4: io.emit('settings:updated', { key, value: parseValue(rawValue) })
+    const parsedValue = parseValue(rawValue);
+    emitToRoom('dashboard', 'settings:updated', { key, value: parsedValue });
+    // Public-visible settings
+    if (key === 'numeral_system' || key === 'buyer_can_attach_car') {
+      emitToRoom('public', 'settings:updated', { key, value: parsedValue });
+    }
 
     return res.json({
       success: true,

@@ -1,4 +1,6 @@
-// Socket.io client — scaffold. Wired into AuthContext in Phase 4.
+// Socket.io client. Singleton connection — dashboard users authenticate via
+// the HTTP-only access_token cookie (same-origin). Public visitors connect
+// anonymously and only receive broadcasts.
 
 import { io } from 'socket.io-client';
 
@@ -9,7 +11,18 @@ export function getSocket() {
     socket = io('/', {
       withCredentials: true,
       autoConnect: false,
+      transports: ['websocket', 'polling'],
     });
   }
   return socket;
+}
+
+export function connectSocket() {
+  const s = getSocket();
+  if (!s.connected) s.connect();
+  return s;
+}
+
+export function disconnectSocket() {
+  if (socket?.connected) socket.disconnect();
 }

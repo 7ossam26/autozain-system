@@ -5,6 +5,7 @@ import { publicApi } from '../../services/publicApi.js';
 import CarCard, { CarCardSkeleton } from '../../components/shared/CarCard.jsx';
 import SearchBar from '../../components/shared/SearchBar.jsx';
 import FilterSidebar from '../../components/shared/FilterSidebar.jsx';
+import { useSocketEvent } from '../../context/SocketContext.jsx';
 
 const SORT_OPTIONS = [
   { value: 'latest',     label: 'الأحدث' },
@@ -127,6 +128,31 @@ export default function Cars() {
   }
 
   const hasMore = cars.length < total;
+
+  // Real-time — patch list on car events.
+  useSocketEvent('car:added', (car) => {
+    setCars((prev) => (prev.find((c) => c.id === car.id) ? prev : [car, ...prev]));
+    setTotal((t) => t + 1);
+  });
+  useSocketEvent('car:removed', ({ carId }) => {
+    setCars((prev) => {
+      if (!prev.find((c) => c.id === carId)) return prev;
+      setTotal((t) => Math.max(0, t - 1));
+      return prev.filter((c) => c.id !== carId);
+    });
+  });
+  useSocketEvent('car:updated', (car) => {
+    setCars((prev) => prev.map((c) => c.id === car.id ? { ...c, ...car } : c));
+  });
+  useSocketEvent('car:status_changed', ({ carId, newStatus }) => {
+    if (newStatus !== 'available') {
+      setCars((prev) => {
+        if (!prev.find((c) => c.id === carId)) return prev;
+        setTotal((t) => Math.max(0, t - 1));
+        return prev.filter((c) => c.id !== carId);
+      });
+    }
+  });
 
   const activeFilterCount = useMemo(() => {
     let n = 0;

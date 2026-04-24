@@ -62,3 +62,48 @@ export async function deleteUser(id) {
 export async function countUsersByRole(roleId) {
   return prisma.user.count({ where: { roleId } });
 }
+
+export async function setUserStatus(id, status) {
+  return prisma.user.update({
+    where: { id },
+    data: { status },
+    include: { role: true },
+  });
+}
+
+export async function savePushSubscription(id, subscription) {
+  return prisma.user.update({
+    where: { id },
+    data: { pushSubscription: subscription },
+  });
+}
+
+export async function listEmployeesPublic() {
+  // Employees whose role is `employee` and are currently online/available/busy.
+  // Excludes offline from the public list (they cannot receive contact requests).
+  return prisma.user.findMany({
+    where: {
+      isActive: true,
+      role: { name: 'employee' },
+      status: { in: ['available', 'busy'] },
+    },
+    select: {
+      id: true,
+      fullName: true,
+      avatarUrl: true,
+      status: true,
+    },
+    orderBy: { fullName: 'asc' },
+  });
+}
+
+export async function listEmployeesForMonitor() {
+  // Full employee list for team-manager monitor page (includes offline).
+  return prisma.user.findMany({
+    where: { isActive: true, role: { name: 'employee' } },
+    select: {
+      id: true, fullName: true, avatarUrl: true, status: true, maxConcurrent: true,
+    },
+    orderBy: { fullName: 'asc' },
+  });
+}

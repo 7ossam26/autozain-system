@@ -6,6 +6,26 @@ import {
   listCars, findCarByIdFull, createCar, updateCar,
   updateCarStatus, deleteCar, getCarAuditLog,
 } from '../repositories/carRepository.js';
+import { prisma } from '../config/db.js';
+import { emitToAll, emitToEmployee } from '../socket/index.js';
+
+// Public projection = same fields as consumer site (no seller info).
+function publicCarProjection(car) {
+  return {
+    id: car.id,
+    carType: car.carType,
+    model: car.model,
+    listingPrice: car.listingPrice,
+    plateNumber: car.plateNumber,
+    transmission: car.transmission,
+    fuelType: car.fuelType,
+    odometer: car.odometer,
+    color: car.color,
+    status: car.status,
+    images: car.images,
+    createdAt: car.createdAt,
+  };
+}
 
 // ─── State machine ────────────────────────────────────────────────────────────
 
@@ -229,6 +249,11 @@ export async function addCar(req, res, next) {
       ipAddress: req.ip,
     });
 
+    // Broadcast to public site + dashboard — only if car is available
+    if (car.status === 'available') {
+      emitToAll('car:added', publicCarProjection(car));
+    }
+
     return res.status(201).json({
       success: true,
       data: car,
@@ -336,6 +361,8 @@ export async function editCar(req, res, next) {
       ? 'رقم الهاتف ممكن يكون غلط — راجعه'
       : null;
 
+    emitToAll('car:updated', publicCarProjection(updated));
+
     return res.json({
       success: true,
       data: updated,
@@ -375,6 +402,33 @@ export async function changeCarStatus(req, res, next) {
       performedBy: req.user.userId,
       ipAddress: req.ip,
     });
+
+    emitToAll('car:status_changed', {
+      carId: car.id, newStatus: toStatus, oldStatus,
+    });
+    // Car becoming unavailable → remove from public listings
+    if (oldStatus === 'available' && toStatus !== 'available') {
+      emitToAll('car:removed', { carId: car.id });
+    }
+    // Car becoming available again → add back
+    if (oldStatus !== 'available' && toStatus === 'available') {
+      emitToAll('car:added', publicCarProjection(updated));
+    }
+
+    // If the employee changing this car has an active session, suggest ending it.
+    if (toStatus === 'deposit_paid' || toStatus === 'sold') {
+      const active = await prisma.contactRequest.findFirst({
+        where: { employeeId: req.user.userId, status: 'accepted' },
+        orderBy: { acceptedAt: 'desc' },
+      });
+      if (active) {
+        emitToEmployee(req.user.userId, 'session:suggest_end', {
+          requestId: active.id,
+          carId: car.id,
+          newStatus: toStatus,
+        });
+      }
+    }
 
     return res.json({ success: true, data: updated });
   } catch (err) {
@@ -420,6 +474,8 @@ export async function removeCar(req, res, next) {
     });
 
     await deleteCar(car.id);
+
+    emitToAll('car:removed', { carId: car.id });
 
     return res.json({ success: true, data: null });
   } catch (err) {
