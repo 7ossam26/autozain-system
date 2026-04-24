@@ -40,10 +40,12 @@ JWT stored in HTTP-only cookies (`access_token`, `refresh_token`). Socket.io aut
 - `PATCH /cars/:id/status`
 - `DELETE /cars/:id`
 
-### Public (`/public`) — Phase 3
-- `GET /public/cars`
-- `GET /public/cars/:id`
-- `GET /public/employees`
+### Public (`/public`) — Phase 3 (no auth)
+- `GET /public/cars` — paginated (20/page, max 50), filterable, sortable. Response EXCLUDES all seller fields. Only `status='available'` cars.
+  - Query: `page`, `limit`, `sort` (`latest` | `price_asc` | `price_desc` | `km_asc`), `car_type` (comma-separated multi), `model` (comma-separated multi), `transmission`, `fuel_type`, `color`, `price_min`, `price_max`, `odometer_min`, `odometer_max`, `search`, `include_filters` (`1` to include available `brands`, `modelsByBrand`, `priceRange`, `odometerRange` in response)
+- `GET /public/cars/:id` — single car detail (no seller fields). 404 if car is not `available`.
+- `GET /public/settings/numeral_system` — `{ numeral_system: 'western' | 'arabic' }`
+- `GET /public/employees` — **Phase 4** (employee list + status for contact-request flow)
 
 ### Contact Requests (`/contact-requests`) — Phase 4
 - `POST /contact-requests`

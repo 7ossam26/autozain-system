@@ -28,9 +28,12 @@ function diskStorage(subdir) {
 
 function imageFilter(req, file, cb) {
   if (ALLOWED_IMAGE_MIMES.includes(file.mimetype)) return cb(null, true);
-  const err = new Error('نوع الصورة غير مدعوم — JPEG, PNG, أو WebP فقط');
-  err.code = 'INVALID_FILE_TYPE';
-  cb(err);
+  // Use cb(null, false) instead of cb(err) to avoid destroying the multipart
+  // stream mid-transfer (which causes ECONNRESET). Track the rejection so the
+  // controller/error handler can still return a proper 400.
+  req.rejectedFiles = req.rejectedFiles || [];
+  req.rejectedFiles.push(file.originalname);
+  cb(null, false);
 }
 
 // Car images (field name: "images", multiple)
@@ -55,7 +58,7 @@ export const licenseUpload = multer({
 });
 
 // Combined upload for car creation: images[] + inspection_image + seller_license_front + seller_license_back
-export const carCreateUpload = multer({
+const _carCreateMulter = multer({
   storage: diskStorage('cars'),
   limits: { fileSize: env.uploadMaxBytes },
   fileFilter: imageFilter,
@@ -65,6 +68,21 @@ export const carCreateUpload = multer({
   { name: 'seller_license_front', maxCount: 1 },
   { name: 'seller_license_back', maxCount: 1 },
 ]);
+
+// Wrap in a standard Express middleware so multer errors (e.g. LIMIT_FILE_SIZE)
+// are forwarded to next(err) instead of being thrown, preventing ECONNRESET.
+export function carCreateUpload(req, res, next) {
+  _carCreateMulter(req, res, (err) => {
+    if (err) return next(err);
+    // If any files were silently rejected by imageFilter, surface as a 400
+    if (req.rejectedFiles && req.rejectedFiles.length > 0) {
+      const rejection = new Error('نوع الصورة غير مدعوم — JPEG, PNG, أو WebP فقط');
+      rejection.code = 'INVALID_FILE_TYPE';
+      return next(rejection);
+    }
+    next();
+  });
+}
 
 export function buildFileUrl(req, subpath) {
   const base = env.backendUrl;

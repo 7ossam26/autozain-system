@@ -84,3 +84,33 @@ Living document. Seeded from [MASTER_PLAN.md](../docs/MASTER_PLAN.md) §16. Each
 
 ### Concurrency
 - Two users simultaneously change same car status (e.g. available → deposit_paid) → both succeed at DB level (no optimistic lock in Phase 2); Phase 5 should add conflict detection if needed
+
+## Phase 3 — Discovered During Implementation
+
+### Public API
+- Seller fields leaking through nested/include queries → mitigated by explicit `select` projection in `publicCarRepository` (no `include: true` shortcuts)
+- Car whose status flips from `available` to `sold` between list and detail fetch → detail returns 404 (not a 500); favorites page silently drops it
+- Detail request for a `withdrawn` car → 404 (same projection rules as sold)
+- `GET /public/cars/:id` with malformed UUID → Prisma throws; centralized error handler should return 500-class — consider validating UUID shape before the query if noise appears in logs
+- `include_filters=1` on large catalogs → distinct queries run per request; Phase 4+ may want to cache the filter options response
+- Price/odometer min/max passed as empty string → treated as "not set" (repository guards against `NaN`)
+- Multi-value `car_type=Toyota,Honda` combined with `model=Corolla` → brand OR is combined via AND with model list — works, but no cross-validation that the model actually belongs to the selected brand
+
+### Favorites (localStorage)
+- `localStorage` disabled (private mode / quota full) → `useFavorites` returns empty list; toggle is a silent no-op rather than throwing
+- Favorited car deleted or marked sold → detail fetch 404s; Favorites page filters those out so the UI never shows a broken card
+- Tab A adds a favorite while Tab B is open → `storage` event refreshes Tab B's count badge
+- `localStorage` contains non-array / tampered JSON → reader returns `[]` (no crash)
+- Same id pushed twice → toggle treats it as "remove"; list de-duped implicitly via `includes` check
+
+### Search & Filters
+- Arabic search query (e.g. "نضيفة") against `additional_info` → Postgres `contains` is case-insensitive and Arabic-safe; confirmed by integration test
+- Filter sidebar with zero inventory → `options` is `null`, sidebar renders only price/odometer/color/fuel/transmission (brand+model lists hidden gracefully)
+- URL params with unknown keys → ignored; unknown `sort` value falls back to `latest`
+- User sets `price_min > price_max` → query returns empty set (no validation error, matches Sylndr UX)
+
+### UI / Responsive
+- Very long brand+model name (e.g. 80 chars) → card truncates via `truncate`/min-width-0; detail breadcrumb truncates the last segment
+- Car with no images → card shows "لا توجد صورة" placeholder; gallery shows placeholder block
+- Mobile filter drawer open + page navigation → drawer unmounts with the route; no lingering overlay
+- Toggling `numeral_system` in dashboard while a public page is open → public page reflects new system only after reload (fetched once on `PublicLayout` mount by design)

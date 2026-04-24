@@ -4,6 +4,10 @@ import ProtectedRoute from './components/shared/ProtectedRoute.jsx';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import DashboardLayout from './components/layout/DashboardLayout.jsx';
 import PublicHome from './pages/public/Home.jsx';
+import PublicCars from './pages/public/Cars.jsx';
+import PublicCarDetail from './pages/public/CarDetail.jsx';
+import PublicFavorites from './pages/public/Favorites.jsx';
+import PublicEmployees from './pages/public/Employees.jsx';
 import Login from './pages/dashboard/Login.jsx';
 import DashboardHome from './pages/dashboard/Home.jsx';
 import Users from './pages/dashboard/Users.jsx';
@@ -19,7 +23,11 @@ export default function App() {
       <Routes>
         {/* Public site */}
         <Route element={<PublicLayout />}>
-          <Route index element={<PublicHome />} />
+          <Route index               element={<PublicHome />} />
+          <Route path="cars"         element={<PublicCars />} />
+          <Route path="cars/:id"     element={<PublicCarDetail />} />
+          <Route path="favorites"    element={<PublicFavorites />} />
+          <Route path="employees"    element={<PublicEmployees />} />
         </Route>
 
         {/* Login — no layout, no auth */}

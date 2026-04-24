@@ -4,6 +4,7 @@ import usersRouter from './users.js';
 import permissionsRouter from './permissions.js';
 import carsRouter from './cars.js';
 import settingsRouter from './settings.js';
+import publicRouter from './public.js';
 
 const router = Router();
 
@@ -16,9 +17,7 @@ router.use('/users',       usersRouter);
 router.use('/permissions', permissionsRouter);
 router.use('/cars',        carsRouter);
 router.use('/settings',    settingsRouter);
-
-// Phase 3+:
-// router.use('/public', publicRouter);
+router.use('/public',      publicRouter);
 // Phase 4+:
 // router.use('/contact-requests', contactRequestsRouter);
 // router.use('/queue', queueRouter);
