@@ -38,8 +38,9 @@ api.interceptors.response.use(
         return api(original);
       } catch (refreshError) {
         processQueue(refreshError);
-        // Redirect to login without importing router — let ProtectedRoute handle it
-        window.location.href = '/dashboard/login';
+        if (window.location.pathname.startsWith('/dashboard')) {
+          window.location.href = '/dashboard/login';
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

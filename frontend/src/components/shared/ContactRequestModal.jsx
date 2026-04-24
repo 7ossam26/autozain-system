@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { publicApi } from '../../services/publicApi.js';
+import { publicApi, publicWriteApi } from '../../services/publicApi.js';
 
 const EG_MOBILE_RE = /^(?:\+20|0)1[0125]\d{8}$/;
 
@@ -31,7 +31,7 @@ export default function ContactRequestModal({ employee, buyerCanAttachCar, onClo
       };
       if (buyerCanAttachCar && carId) body.car_id = carId;
 
-      const { data } = await publicApi.post('/contact-requests', body);
+      const { data } = await publicWriteApi.post('/contact-requests', body);
       onSubmitted({ id: data.data.id, timeoutMinutes: data.data.timeoutMinutes });
     } catch (err) {
       const code = err.response?.data?.error_code;

@@ -6,7 +6,7 @@ import { useSocketEvent } from '../../context/SocketContext.jsx';
 import { useAudioAlert } from '../../hooks/useAudioAlert.js';
 
 export default function IncomingRequestOverlay() {
-  const { user } = useAuth();
+  const { user, refetchUser } = useAuth();
   const { play, vibrate, muted, setMuted } = useAudioAlert();
   const [request, setRequest] = useState(null);
   const [working, setWorking] = useState(false);
@@ -64,6 +64,9 @@ export default function IncomingRequestOverlay() {
     setError(null);
     try {
       await api.patch(`/contact-requests/${request.requestId}`, { action });
+      if (action === 'accept') {
+        refetchUser?.();
+      }
       setRequest(null);
     } catch (err) {
       setError(err.response?.data?.message || 'فشل الإجراء');

@@ -72,10 +72,10 @@ export function useSocket() {
 
 // Subscribe to a single event with automatic cleanup.
 export function useSocketEvent(event, handler, deps = []) {
-  const { on } = useSocket();
+  const { on, connected } = useSocket();
   useEffect(() => {
     const off = on(event, handler);
     return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event, ...deps]);
+  }, [event, on, connected, ...deps]);
 }

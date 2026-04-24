@@ -2,6 +2,7 @@ import { ROLE_NAMES } from '../config/constants.js';
 import { getSetting } from '../config/settingsCache.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { looksLikeEgyptianMobile } from '../utils/validators.js';
+import { validateCarStatusTransition } from '../utils/stateMachine.js';
 import ExcelJS from 'exceljs';
 import {
   listCars, findCarByIdFull, createCar, updateCar,
@@ -387,9 +388,14 @@ export async function changeCarStatus(req, res, next) {
       return res.status(400).json({ success: false, message: 'الحالة الجديدة مطلوبة', error_code: 'VALIDATION_ERROR' });
     }
 
-    const error = validateTransition(car.status, toStatus, req.user.roleName);
-    if (error) {
-      return res.status(422).json({ success: false, message: error, error_code: 'INVALID_TRANSITION' });
+    const transition = validateCarStatusTransition({
+      fromStatus: car.status,
+      toStatus,
+      roleName: req.user.roleName,
+      employeeCanChangeStatus: getSetting('employee_can_change_status') === true,
+    });
+    if (!transition.ok) {
+      return res.status(422).json({ success: false, message: transition.message, error_code: 'INVALID_TRANSITION' });
     }
 
     const oldStatus = car.status;

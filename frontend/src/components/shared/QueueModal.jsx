@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Loader2, Hourglass } from 'lucide-react';
-import { publicApi } from '../../services/publicApi.js';
+import { publicWriteApi } from '../../services/publicApi.js';
 
 const EG_MOBILE_RE = /^(?:\+20|0)1[0125]\d{8}$/;
 
@@ -15,7 +15,7 @@ export default function QueueModal({ onClose, onJoined }) {
     setError(null);
     setSubmitting(true);
     try {
-      const { data } = await publicApi.post('/queue', {
+      const { data } = await publicWriteApi.post('/queue', {
         buyer_name: name.trim(),
         buyer_phone: phone.trim(),
       });

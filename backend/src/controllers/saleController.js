@@ -6,6 +6,7 @@ import {
 import { prisma } from '../config/db.js';
 import { emitToEmployee, emitToRoom } from '../socket/index.js';
 import { exportToExcel, exportToPdf } from '../services/exportService.js';
+import { calculateSaleFinancials, requireWholeEgp } from '../utils/financial.js';
 
 // POST /sales — CFO closes a sale
 export async function closeSale(req, res, next) {
@@ -24,17 +25,17 @@ export async function closeSale(req, res, next) {
       });
     }
 
-    const finalPrice = parseInt(final_sale_price, 10);
-    const sellerRec  = parseInt(seller_received, 10);
+    const finalPrice = requireWholeEgp(final_sale_price, { min: 1 });
+    const sellerRec  = requireWholeEgp(seller_received, { min: 0 });
 
-    if (isNaN(finalPrice) || finalPrice <= 0) {
+    if (finalPrice === null) {
       return res.status(400).json({
         success: false,
         message: 'السعر النهائي لازم يكون رقم صحيح أكبر من صفر',
         error_code: 'VALIDATION_ERROR',
       });
     }
-    if (isNaN(sellerRec) || sellerRec < 0) {
+    if (sellerRec === null) {
       return res.status(400).json({
         success: false,
         message: 'المبلغ للبائع لازم يكون رقم صحيح موجب',
@@ -44,10 +45,10 @@ export async function closeSale(req, res, next) {
 
     const defaultCommission = Number(getSetting('default_commission') ?? 0);
     const commission = employee_commission !== undefined
-      ? parseInt(employee_commission, 10)
+      ? requireWholeEgp(employee_commission, { min: 0 })
       : defaultCommission;
 
-    if (isNaN(commission) || commission < 0) {
+    if (commission === null) {
       return res.status(400).json({
         success: false,
         message: 'العمولة لا يمكن أن تكون سالبة',
@@ -87,9 +88,13 @@ export async function closeSale(req, res, next) {
     const depositAmount = latestDeposit?.depositAmount ?? 0;
 
     // Auto-calculations — all integer
-    const dealershipRevenue = finalPrice - sellerRec;
     const taxPercentage     = Number(getSetting('tax_percentage') ?? 0);
-    const taxAmount         = Math.round(dealershipRevenue * taxPercentage / 100);
+    const { dealershipRevenue, taxAmount } = calculateSaleFinancials({
+      finalSalePrice: finalPrice,
+      sellerReceived: sellerRec,
+      employeeCommission: commission,
+      taxPercentage,
+    });
 
     const sale = await createSale({
       carId: car_id,

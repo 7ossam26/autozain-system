@@ -6,3 +6,7 @@ import axios from 'axios';
 export const publicApi = axios.create({
   baseURL: '/api/v1/public',
 });
+
+export const publicWriteApi = axios.create({
+  baseURL: '/api/v1',
+});

@@ -1,4 +1,5 @@
 import { logAudit } from '../utils/auditLogger.js';
+import { requireWholeEgp } from '../utils/financial.js';
 import {
   createDepositRequest, findDepositById, listDeposits,
   updateDeposit, findPendingDepositForCar,
@@ -19,8 +20,8 @@ export async function submitDeposit(req, res, next) {
       });
     }
 
-    const amount = parseInt(deposit_amount, 10);
-    if (isNaN(amount) || amount <= 0) {
+    const amount = requireWholeEgp(deposit_amount, { min: 1 });
+    if (amount === null) {
       return res.status(400).json({
         success: false,
         message: 'مبلغ العربون لازم يكون رقم صحيح أكبر من صفر',

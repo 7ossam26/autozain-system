@@ -17,10 +17,16 @@
     "db:generate": "npm --workspace backend run prisma:generate",
     "db:seed": "npm --workspace backend run prisma:seed",
     "db:studio": "npm --workspace backend run prisma:studio",
-    "test": "npm --workspace backend test"
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration backend/tests/integration",
+    "test:e2e": "playwright test tests/e2e",
+    "test:all": "npm run test && npm run build && npm run test:e2e"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@playwright/test": "^1.59.1",
+    "concurrently": "^8.2.2",
+    "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=20"

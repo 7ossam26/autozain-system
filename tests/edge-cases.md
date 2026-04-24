@@ -236,3 +236,22 @@ Living document. Seeded from [MASTER_PLAN.md](../docs/MASTER_PLAN.md) §16. Each
 ### Mobile
 - Bottom nav shows max 5 items (first 5 visible nav items the user has access to) — new "Team" and "Archive" nav items push older items past position 5 for roles with fewer permissions
 - `pb-24 md:pb-6` on `<main>` in DashboardLayout provides safe zone above the bottom nav bar on mobile
+
+## Phase 7 — Discovered During Testing
+
+### Public Auth / API
+- Public pages call `/auth/me` through `AuthProvider`; a 401 on public routes must not redirect to `/dashboard/login`. Redirect only dashboard routes.
+- Public write flows use non-`/public` endpoints (`/contact-requests`, `/queue`); keep separate public read and public write API clients so requests do not silently hit the wrong base URL.
+
+### Real-Time
+- `useSocketEvent` can run before the socket singleton is connected; listeners must resubscribe when socket connection state changes or public pages miss live employee/car updates.
+- Public real-time tests need to wait until the page has mounted and socket listeners are attached before triggering server-side broadcasts.
+
+### Employee Sessions
+- Accepting an incoming contact request changes employee status to `busy`; the overlay must refresh authenticated user state so `EmployeeStatusToggle` reflects the server state.
+- Car status change during an active session displays the session-end suggestion text with Arabic diacritics; tests should assert the stable phrase, not a diacritic-sensitive exact string.
+
+### E2E Harness
+- Windows `execFile('npm.cmd')` can fail with `spawn EINVAL`; Prisma seed helper uses `exec()` for workspace scripts.
+- Desktop and mobile E2E projects share one backend process; browser-driven public contact submissions must use isolated forwarded IPs or the contact-request rate limiter contaminates later tests.
+- Mobile filter drawer duplicates filter controls and stays open after filtering; tests must scope to the price section and explicitly close the drawer before clicking results.

@@ -11,7 +11,7 @@ Tracks completion of each phase defined in [MASTER_PLAN.md](MASTER_PLAN.md) §14
 | 4 | Real-Time + Notifications + Employee Flow | [PHASE_4_REALTIME.md](../prompts/PHASE_4_REALTIME.md) | [x] |
 | 5 | Financial Module + Reports | [PHASE_5_FINANCIAL.md](../prompts/PHASE_5_FINANCIAL.md) | [x] |
 | 6 | Admin + Archive + Polish | [PHASE_6_POLISH.md](../prompts/PHASE_6_POLISH.md) | [x] |
-| 7 | Testing & QA (Playwright) | [PHASE_7_TESTING.md](../prompts/PHASE_7_TESTING.md) | [ ] |
+| 7 | Testing & QA (Playwright) | [PHASE_7_TESTING.md](../prompts/PHASE_7_TESTING.md) | [x] |
 
 ## Rules
 
