@@ -9,6 +9,7 @@ import compression from 'compression';
 
 import { env } from './config/env.js';
 import { API_PREFIX } from './config/constants.js';
+import { loadSettingsCache } from './config/settingsCache.js';
 import apiRouter from './routes/index.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 import { initSocket } from './socket/index.js';
@@ -55,9 +56,11 @@ initSocket(httpServer);
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  httpServer.listen(env.port, () => {
-    console.log(`[autozain] API on http://localhost:${env.port}${API_PREFIX}`);
-    console.log(`[autozain] env: ${env.nodeEnv}`);
+  loadSettingsCache().then(() => {
+    httpServer.listen(env.port, () => {
+      console.log(`[autozain] API on http://localhost:${env.port}${API_PREFIX}`);
+      console.log(`[autozain] env: ${env.nodeEnv}`);
+    });
   });
 }
 

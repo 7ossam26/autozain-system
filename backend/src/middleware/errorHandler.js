@@ -11,6 +11,20 @@ export function notFound(req, res, next) {
 
 // eslint-disable-next-line no-unused-vars
 export function errorHandler(err, req, res, next) {
+  // Multer errors (file size, invalid type, field count)
+  if (err.name === 'MulterError' || err.code === 'INVALID_FILE_TYPE') {
+    const multerMessages = {
+      LIMIT_FILE_SIZE: 'حجم الصورة أكبر من الحد المسموح (5 ميجا)',
+      LIMIT_FILE_COUNT: 'عدد الصور أكبر من الحد المسموح',
+      LIMIT_UNEXPECTED_FILE: 'حقل رفع غير متوقع',
+    };
+    return res.status(400).json({
+      success: false,
+      message: multerMessages[err.code] || err.message || 'خطأ في رفع الملف',
+      error_code: err.code || 'UPLOAD_ERROR',
+    });
+  }
+
   const status = err.status || err.statusCode || 500;
   const message = err.message || 'Internal server error';
   const errorCode = err.code || (status === 500 ? 'INTERNAL_ERROR' : 'REQUEST_ERROR');

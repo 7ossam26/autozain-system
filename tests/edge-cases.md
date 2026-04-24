@@ -62,5 +62,25 @@ Living document. Seeded from [MASTER_PLAN.md](../docs/MASTER_PLAN.md) §16. Each
 
 ## Uploads
 - `backend/uploads/` not writable (Dokploy volume misconfigured)
-- File name with path traversal (`../../etc/passwd`)
+- File name with path traversal (`../../etc/passwd`) — multer diskStorage uses crypto random filename, mitigated
 - Simultaneous uploads exceeding disk quota
+
+## Phase 2 — Discovered During Implementation
+
+### Cars / State Machine
+- Employee tries to change status when `employee_can_change_status = false` → must receive 403
+- Employee tries to edit when `employee_can_edit_car = false` → must receive 403
+- Employee tries to delete when `employee_can_delete_car = false` → must receive 403
+- `withdrawn → available` attempted by employee (admin-only transition) → must receive 422
+- `available → sold` direct jump (invalid transition) → must receive 422
+- Car images array exceeds `max_car_images` setting → must receive 400 with TOO_MANY_IMAGES
+- Seller phone that's an empty string vs. missing field (both should trigger warning, not block)
+- Update car with no changed fields → 400 VALIDATION_ERROR
+
+### Settings Cache
+- Server restart while a setting is being updated → cache re-loads from DB on next start (safe)
+- Multiple concurrent PUT /settings/:key for same key → last write wins (single process)
+- Setting `max_car_images` reduced below count of existing images → cars already saved not affected, only future uploads blocked
+
+### Concurrency
+- Two users simultaneously change same car status (e.g. available → deposit_paid) → both succeed at DB level (no optimistic lock in Phase 2); Phase 5 should add conflict detection if needed

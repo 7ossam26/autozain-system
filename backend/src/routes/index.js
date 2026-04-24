@@ -2,6 +2,8 @@ import { Router } from 'express';
 import authRouter from './auth.js';
 import usersRouter from './users.js';
 import permissionsRouter from './permissions.js';
+import carsRouter from './cars.js';
+import settingsRouter from './settings.js';
 
 const router = Router();
 
@@ -12,10 +14,9 @@ router.get('/health', (req, res) => {
 router.use('/auth',        authRouter);
 router.use('/users',       usersRouter);
 router.use('/permissions', permissionsRouter);
+router.use('/cars',        carsRouter);
+router.use('/settings',    settingsRouter);
 
-// Phase 2+:
-// router.use('/cars', carsRouter);
-// router.use('/settings', settingsRouter);
 // Phase 3+:
 // router.use('/public', publicRouter);
 // Phase 4+:
