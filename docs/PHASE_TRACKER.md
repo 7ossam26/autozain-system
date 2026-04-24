@@ -5,7 +5,7 @@ Tracks completion of each phase defined in [MASTER_PLAN.md](MASTER_PLAN.md) §14
 | # | Phase | Prompt | Status |
 |---|-------|--------|--------|
 | 0 | Scaffold & Architecture | [PHASE_0_INIT.md](../prompts/PHASE_0_INIT.md) | [x] |
-| 1 | Foundation (Auth + RBAC + Users) | [PHASE_1_FOUNDATION.md](../prompts/PHASE_1_FOUNDATION.md) | [ ] |
+| 1 | Foundation (Auth + RBAC + Users) | [PHASE_1_FOUNDATION.md](../prompts/PHASE_1_FOUNDATION.md) | [x] |
 | 2 | Car Management + Seller Data | [PHASE_2_CARS.md](../prompts/PHASE_2_CARS.md) | [ ] |
 | 3 | Consumer Site (Public) | [PHASE_3_CONSUMER.md](../prompts/PHASE_3_CONSUMER.md) | [ ] |
 | 4 | Real-Time + Notifications + Employee Flow | [PHASE_4_REALTIME.md](../prompts/PHASE_4_REALTIME.md) | [ ] |

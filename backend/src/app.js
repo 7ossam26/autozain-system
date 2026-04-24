@@ -19,6 +19,9 @@ const uploadsDir = path.resolve(__dirname, '..', 'uploads');
 
 const app = express();
 
+// Trust the first proxy hop (needed for correct req.ip in rate limiters behind Dokploy/nginx)
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(
   cors({
@@ -50,7 +53,12 @@ app.use(errorHandler);
 const httpServer = http.createServer(app);
 initSocket(httpServer);
 
-httpServer.listen(env.port, () => {
-  console.log(`[autozain] API on http://localhost:${env.port}${API_PREFIX}`);
-  console.log(`[autozain] env: ${env.nodeEnv}`);
-});
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+  httpServer.listen(env.port, () => {
+    console.log(`[autozain] API on http://localhost:${env.port}${API_PREFIX}`);
+    console.log(`[autozain] env: ${env.nodeEnv}`);
+  });
+}
+
+export { app, httpServer };

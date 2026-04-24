@@ -1,6 +1,7 @@
-// API v1 root router. Sub-routers are mounted here as phases land.
-
 import { Router } from 'express';
+import authRouter from './auth.js';
+import usersRouter from './users.js';
+import permissionsRouter from './permissions.js';
 
 const router = Router();
 
@@ -8,9 +9,10 @@ router.get('/health', (req, res) => {
   res.json({ success: true, data: { status: 'ok' } });
 });
 
-// Phase 1+:
-// router.use('/auth', authRouter);
-// router.use('/users', usersRouter);
+router.use('/auth',        authRouter);
+router.use('/users',       usersRouter);
+router.use('/permissions', permissionsRouter);
+
 // Phase 2+:
 // router.use('/cars', carsRouter);
 // router.use('/settings', settingsRouter);
