@@ -4,14 +4,14 @@ import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function Login() {
   const { login, user, loading: authLoading } = useAuth();
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const from      = location.state?.from?.pathname || '/dashboard';
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [retryAfter, setRetryAfter] = useState(null);
 
   const handleSubmit = async (e) => {
@@ -26,7 +26,7 @@ export default function Login() {
       navigate(from, { replace: true });
     } catch (err) {
       const status = err.response?.status;
-      const code   = err.response?.data?.error_code;
+      const code = err.response?.data?.error_code;
 
       if (status === 429) {
         const resetHeader = err.response?.headers?.['x-ratelimit-reset'];
@@ -78,7 +78,7 @@ export default function Login() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full border border-border-muted rounded-sm px-3 py-2 text-text-primary bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              placeholder="superadmin"
+              placeholder="username"
               disabled={loading}
               required
             />
