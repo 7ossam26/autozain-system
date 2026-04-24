@@ -17,11 +17,13 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
+    const isLoginPage = window.location.pathname === '/dashboard/login';
     if (
       error.response?.status === 401 &&
       !original._retry &&
       !original.url?.includes('/auth/refresh-token') &&
-      !original.url?.includes('/auth/login')
+      !original.url?.includes('/auth/login') &&
+      !isLoginPage
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -38,7 +40,10 @@ api.interceptors.response.use(
         return api(original);
       } catch (refreshError) {
         processQueue(refreshError);
-        if (window.location.pathname.startsWith('/dashboard')) {
+        if (
+          window.location.pathname.startsWith('/dashboard') &&
+          window.location.pathname !== '/dashboard/login'
+        ) {
           window.location.href = '/dashboard/login';
         }
         return Promise.reject(refreshError);
