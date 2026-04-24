@@ -151,6 +151,40 @@ Living document. Seeded from [MASTER_PLAN.md](../docs/MASTER_PLAN.md) §16. Each
 - `navigator.vibrate` missing (desktop) → silent fallback
 - Car status changed during active session → server emits `session:suggest_end` to the acting employee's room; the session panel shows an inline suggestion
 
+## Phase 5 — Discovered During Implementation
+
+### Deposits
+- Employee submits deposit for car NOT in `deposit_paid` state → 409 INVALID_STATE (must change status first)
+- Duplicate pending deposit for same car → 409 DUPLICATE_DEPOSIT (only one pending per car at a time)
+- CFO tries to confirm/reject an already-confirmed deposit → 409 INVALID_STATE
+- Deposit rejected → car auto-reverted to `available`, `car:status_changed` event emitted to dashboard
+- `deposit_amount` submitted as decimal string (e.g. "150.5") → `parseInt` strips decimal; backend validates > 0
+
+### Sales
+- Close sale for car with status `available` or `withdrawn` → 409 INVALID_STATE
+- Close sale twice for same car → 409 DUPLICATE_SALE (check `findSaleByCarId` before insert)
+- `final_sale_price < seller_received` → `dealership_revenue` goes negative; allowed (CFO's responsibility), frontend shows warning color on net profit
+- `employee_commission` not provided → defaults to `default_commission` from settings cache
+- `employee_id` not provided in body → falls back to `car.addedBy` (the employee who added the car)
+- `taxPercentage` stored as `Decimal(5,2)` in Prisma; `Number()` coercion needed before arithmetic
+- Car transitions to `sold` and `car:status_changed` emitted — consumer site should remove it from listings
+
+### Export
+- Export with no matching records → valid empty Excel/PDF still generated (no crash)
+- PDF without Arabic font at `backend/assets/fonts/IBMPlexSansArabic-Regular.ttf` → falls back to pdfkit default font; Arabic characters may not render with proper ligatures; place the TTF to fix
+- Excel column `numFmt: '#,##0'` formats integers with commas — decimal amounts are truncated since all amounts are `Int`
+- `columns` query param is comma-separated list of column keys; unknown keys are silently ignored by `COLUMN_DEFS.filter`
+
+### Reports / Stats
+- `GET /sales/stats` is separate from `GET /sales` to keep list pagination clean
+- Stats use `aggregate._sum` which returns `null` (not 0) if no rows exist — `?? 0` guard applied in repository
+- Date filter `end_date` has its time set to 23:59:59.999 so full-day inclusive filtering works
+
+### Frontend
+- `CloseSaleModal` fetches `default_commission` and `tax_percentage` from `/settings` on mount; stale settings only affect pre-fill, not server calculation
+- Phone soft-warning uses same regex as backend (`EGYPTIAN_MOBILE_RE`) for consistency
+- Export buttons trigger a direct browser download via `<a href>` trick — no Blob needed; auth cookie is sent automatically (same-origin)
+
 ### Real-time broadcasts
 - Public `/cars` page with active filters → new `car:added` is prepended regardless of filter match (simple behavior); Phase 5+ could filter client-side
 - `car:status_changed` to a non-`available` status → public Cars page removes it from state and decrements `total`

@@ -18,6 +18,10 @@ import AddCar from './pages/dashboard/AddCar.jsx';
 import CarDetail from './pages/dashboard/CarDetail.jsx';
 import Settings from './pages/dashboard/Settings.jsx';
 import Monitor from './pages/dashboard/Monitor.jsx';
+import Financial from './pages/dashboard/financial/Financial.jsx';
+import Deposits from './pages/dashboard/financial/Deposits.jsx';
+import PendingSales from './pages/dashboard/financial/PendingSales.jsx';
+import Reports from './pages/dashboard/financial/Reports.jsx';
 
 export default function App() {
   return (
@@ -53,7 +57,12 @@ export default function App() {
           <Route path="cars/:id"          element={<CarDetail />} />
           <Route path="settings"          element={<Settings />} />
           <Route path="monitor"           element={<Monitor />} />
-          {/* Phase 5+: financial, reports, archive */}
+          <Route path="reports"           element={<Reports />} />
+          {/* Financial hub with sub-routes */}
+          <Route path="financial"         element={<Financial />}>
+            <Route path="deposits"        element={<Deposits />} />
+            <Route path="pending"         element={<PendingSales />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

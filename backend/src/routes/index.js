@@ -8,6 +8,8 @@ import publicRouter from './public.js';
 import contactRequestsRouter from './contactRequests.js';
 import queueRouter from './queue.js';
 import pushRouter from './push.js';
+import depositsRouter from './deposits.js';
+import salesRouter from './sales.js';
 
 const router = Router();
 
@@ -24,8 +26,7 @@ router.use('/public',            publicRouter);
 router.use('/contact-requests',  contactRequestsRouter);
 router.use('/queue',             queueRouter);
 router.use('/push',              pushRouter);
-// Phase 5+:
-// router.use('/deposits', depositsRouter);
-// router.use('/sales', salesRouter);
+router.use('/deposits',          depositsRouter);
+router.use('/sales',             salesRouter);
 
 export default router;
