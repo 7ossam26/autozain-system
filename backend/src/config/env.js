@@ -11,7 +11,7 @@ const required = (key) => {
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProd: process.env.NODE_ENV === 'production',
-  port: Number(process.env.BACKEND_PORT || 3000),
+  port: Number(process.env.PORT || process.env.BACKEND_PORT || 3000),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   backendUrl: process.env.BACKEND_URL || 'http://localhost:3000',
 
