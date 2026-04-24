@@ -4,9 +4,8 @@ cmds = ["npm install --workspaces --include-workspace-root"]
 [phases.build]
 cmds = [
   "npm --workspace backend run prisma:generate",
-  "npm --workspace backend run prisma:deploy",
   "npm run build"
 ]
 
 [start]
-cmd = "npm start"
+cmd = "npm --workspace backend run prisma:deploy && npm start"
