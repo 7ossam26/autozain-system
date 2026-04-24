@@ -8,4 +8,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npm --workspace backend run prisma:deploy && npm start"
+cmd = "npm --workspace backend run prisma:deploy && npm --workspace backend run prisma:seed && npm start"
