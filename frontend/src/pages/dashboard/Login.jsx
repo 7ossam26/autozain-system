@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
   const from      = location.state?.from?.pathname || '/dashboard';
@@ -45,11 +45,24 @@ export default function Login() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
+        <div className="text-text-secondary text-lg">جاري التحميل…</div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4" dir="rtl">
       <div className="w-full max-w-sm bg-surface rounded-lg shadow-lg p-8">
         {/* Logo */}
         <div className="text-center mb-8">
+          <img src="/logo.svg" alt="أوتوزين" className="h-12 w-auto mx-auto mb-3" />
           <h1 className="text-3xl font-bold text-primary tracking-tight">أوتوزين</h1>
           <p className="text-text-secondary text-sm mt-1">لوحة تحكم الإدارة</p>
         </div>
@@ -100,6 +113,12 @@ export default function Login() {
           >
             {loading ? 'جاري الدخول…' : 'دخول'}
           </button>
+          <Link
+            to="/"
+            className="block text-center text-sm font-medium text-text-secondary hover:text-primary transition-colors"
+          >
+            بتدور على عربية؟ ارجع وتواصل مع موظف
+          </Link>
         </form>
       </div>
     </div>

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Outlet, Link, NavLink } from 'react-router-dom';
-import { Heart, Menu, X, UserCircle2 } from 'lucide-react';
+import { Heart, LogIn, Menu, X, UserCircle2 } from 'lucide-react';
 import { useFavorites } from '../../hooks/useFavorites.js';
 import { useNumeralSystem } from '../../hooks/useNumeralSystem.js';
+
+const STAFF_LOGIN_LABEL = 'دخول الموظفين';
 
 export default function PublicLayout() {
   const { count } = useFavorites();
@@ -34,6 +36,13 @@ export default function PublicLayout() {
                 )}
               </span>
             </NavItem>
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-background transition-colors"
+            >
+              <LogIn size={15} />
+              {STAFF_LOGIN_LABEL}
+            </Link>
             <Link
               to="/employees"
               className="ml-2 flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-dark transition-colors"
@@ -77,6 +86,16 @@ export default function PublicLayout() {
             >
               تواصل مع موظف
             </Link>
+            <div className="mt-3 pt-3 border-t border-border-muted">
+              <Link
+                to="/dashboard"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary px-3 py-2 rounded-md hover:bg-background transition-colors"
+              >
+                <LogIn size={15} />
+                {STAFF_LOGIN_LABEL}
+              </Link>
+            </div>
           </nav>
         )}
       </header>
@@ -91,6 +110,8 @@ export default function PublicLayout() {
           <Link to="/terms"   className="hover:text-white transition-colors">الشروط والأحكام</Link>
           <span>·</span>
           <Link to="/privacy" className="hover:text-white transition-colors">سياسة الخصوصية</Link>
+          <span>·</span>
+          <Link to="/dashboard" className="hover:text-white transition-colors">{STAFF_LOGIN_LABEL}</Link>
         </div>
       </footer>
     </div>
