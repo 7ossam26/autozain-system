@@ -278,3 +278,51 @@ export async function deleteUserHandler(req, res, next) {
     next(err);
   }
 }
+
+// GET /users/team-stats — employee performance aggregates
+export async function getTeamStats(req, res, next) {
+  try {
+    const employees = await listEmployeesForMonitor();
+
+    const employeeIds = employees.map((e) => e.id);
+
+    const [totals, accepted, rejected] = await Promise.all([
+      prisma.contactRequest.groupBy({
+        by: ['employeeId'],
+        _count: { id: true },
+        where: { employeeId: { in: employeeIds } },
+      }),
+      prisma.contactRequest.groupBy({
+        by: ['employeeId'],
+        _count: { id: true },
+        where: {
+          employeeId: { in: employeeIds },
+          status: { in: ['accepted', 'completed'] },
+        },
+      }),
+      prisma.contactRequest.groupBy({
+        by: ['employeeId'],
+        _count: { id: true },
+        where: { employeeId: { in: employeeIds }, status: 'rejected' },
+      }),
+    ]);
+
+    const totalsMap   = Object.fromEntries(totals.map((r) => [r.employeeId, r._count.id]));
+    const acceptedMap = Object.fromEntries(accepted.map((r) => [r.employeeId, r._count.id]));
+    const rejectedMap = Object.fromEntries(rejected.map((r) => [r.employeeId, r._count.id]));
+
+    const enriched = employees.map((e) => ({
+      id: e.id,
+      fullName: e.fullName,
+      status: e.status,
+      role: e.role,
+      totalSessions:    totalsMap[e.id]   ?? 0,
+      acceptedSessions: acceptedMap[e.id] ?? 0,
+      rejectedSessions: rejectedMap[e.id] ?? 0,
+    }));
+
+    return res.json({ success: true, data: enriched });
+  } catch (err) {
+    next(err);
+  }
+}

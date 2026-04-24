@@ -2,9 +2,11 @@ import { ROLE_NAMES } from '../config/constants.js';
 import { getSetting } from '../config/settingsCache.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { looksLikeEgyptianMobile } from '../utils/validators.js';
+import ExcelJS from 'exceljs';
 import {
   listCars, findCarByIdFull, createCar, updateCar,
   updateCarStatus, deleteCar, getCarAuditLog,
+  listArchivedCars, importCars, listAllCars,
 } from '../repositories/carRepository.js';
 import { prisma } from '../config/db.js';
 import { emitToAll, emitToEmployee } from '../socket/index.js';
@@ -478,6 +480,210 @@ export async function removeCar(req, res, next) {
     emitToAll('car:removed', { carId: car.id });
 
     return res.json({ success: true, data: null });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Archive ──────────────────────────────────────────────────────────────────
+
+export async function getArchive(req, res, next) {
+  try {
+    const { page = 1, limit = 20, search, status } = req.query;
+    const { cars, total } = await listArchivedCars({
+      page: Number(page),
+      limit: Math.min(Number(limit), 100),
+      search,
+      status,
+    });
+    return res.json({
+      success: true,
+      data: cars,
+      meta: { total, page: Number(page), limit: Number(limit) },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+const STATUS_LABELS_AR = {
+  available: 'متاحة',
+  deposit_paid: 'عربون',
+  sold: 'مباعة',
+  withdrawn: 'مسحوبة',
+};
+
+const TRANSMISSION_LABELS_AR = {
+  automatic: 'أوتوماتيك',
+  manual: 'عادي',
+};
+
+export async function exportCars(req, res, next) {
+  try {
+    const cars = await listAllCars(req.query);
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'AutoZain';
+    const sheet = workbook.addWorksheet('العربيات', { views: [{ rightToLeft: true }] });
+
+    sheet.columns = [
+      { header: 'النوع',        key: 'carType',       width: 16 },
+      { header: 'الموديل',      key: 'model',         width: 16 },
+      { header: 'السعر',        key: 'listingPrice',  width: 14 },
+      { header: 'الحالة',       key: 'status',        width: 12 },
+      { header: 'النمرة',       key: 'plateNumber',   width: 14 },
+      { header: 'العداد (كم)',  key: 'odometer',      width: 14 },
+      { header: 'ناقل الحركة', key: 'transmission',  width: 14 },
+      { header: 'اللون',        key: 'color',         width: 12 },
+      { header: 'نوع الوقود',  key: 'fuelType',      width: 12 },
+      { header: 'تاريخ الإضافة', key: 'createdAt',   width: 18 },
+    ];
+
+    sheet.getRow(1).font = { bold: true };
+
+    cars.forEach((car) => {
+      sheet.addRow({
+        carType: car.carType,
+        model: car.model,
+        listingPrice: car.listingPrice,
+        status: STATUS_LABELS_AR[car.status] || car.status,
+        plateNumber: car.plateNumber || '',
+        odometer: car.odometer,
+        transmission: TRANSMISSION_LABELS_AR[car.transmission] || car.transmission,
+        color: car.color || '',
+        fuelType: car.fuelType || '',
+        createdAt: new Date(car.createdAt).toLocaleDateString('ar-EG'),
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="cars.xlsx"');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Import ───────────────────────────────────────────────────────────────────
+
+const REQUIRED_IMPORT_FIELDS = [
+  'car_type', 'model', 'listing_price', 'transmission',
+  'plate_number', 'odometer', 'seller_name', 'seller_phone', 'seller_residence',
+];
+
+function parseImportInt(val) {
+  if (val === undefined || val === null || val === '') return NaN;
+  const n = Number(String(val).replace(/,/g, '').trim());
+  if (!Number.isInteger(n) || n < 0) return NaN;
+  return n;
+}
+
+export async function importCarsHandler(req, res, next) {
+  try {
+    const { rows } = req.body ?? {};
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'لا توجد بيانات للاستيراد',
+        error_code: 'VALIDATION_ERROR',
+      });
+    }
+
+    if (rows.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'الحد الأقصى لعدد الصفوف المستوردة في مرة واحدة هو 500',
+        error_code: 'TOO_MANY_ROWS',
+      });
+    }
+
+    const errors = [];
+    const validRows = [];
+
+    rows.forEach((row, idx) => {
+      const rowErrors = [];
+      const rowNum = idx + 1;
+
+      REQUIRED_IMPORT_FIELDS.forEach((field) => {
+        if (!row[field] && row[field] !== 0) rowErrors.push(`${field} مطلوب`);
+      });
+
+      if (row.listing_price && isNaN(parseImportInt(row.listing_price))) {
+        rowErrors.push(`listing_price يجب أن يكون رقم صحيح بدون كسور (قيمة: ${row.listing_price})`);
+      }
+
+      if (row.odometer && isNaN(parseImportInt(row.odometer))) {
+        rowErrors.push(`odometer يجب أن يكون رقم صحيح (قيمة: ${row.odometer})`);
+      }
+
+      if (row.transmission && !['automatic', 'manual'].includes(row.transmission)) {
+        rowErrors.push(`transmission يجب أن يكون "automatic" أو "manual" (قيمة: ${row.transmission})`);
+      }
+
+      if (rowErrors.length) {
+        errors.push({ row: rowNum, errors: [...new Set(rowErrors)] });
+      } else {
+        const priceInt = parseImportInt(row.listing_price);
+        const odoInt   = parseImportInt(row.odometer);
+        validRows.push({
+          carType:          String(row.car_type).trim(),
+          model:            String(row.model).trim(),
+          listingPrice:     priceInt,
+          transmission:     row.transmission,
+          plateNumber:      String(row.plate_number).trim(),
+          odometer:         isNaN(odoInt) ? 0 : odoInt,
+          sellerName:       String(row.seller_name).trim(),
+          sellerPhone:      String(row.seller_phone).trim(),
+          sellerResidence:  String(row.seller_residence).trim(),
+          color:            row.color ? String(row.color).trim() : null,
+          fuelType:         row.fuel_type || null,
+          additionalInfo:   row.additional_info ? String(row.additional_info).trim() : null,
+          licenseInfo:      row.license_info ? String(row.license_info).trim() : '',
+          images:           [],
+          addedBy:          req.user.userId,
+        });
+      }
+    });
+
+    if (errors.length > 0) {
+      return res.status(422).json({
+        success: false,
+        message: `${errors.length} صف بهم أخطاء`,
+        error_code: 'VALIDATION_ERRORS',
+        data: { errors },
+      });
+    }
+
+    const plates = validRows.map((r) => r.plateNumber).filter(Boolean);
+    const uniquePlates = new Set(plates);
+    if (uniquePlates.size !== plates.length) {
+      return res.status(422).json({
+        success: false,
+        message: 'يوجد نمر مكررة في ملف الاستيراد',
+        error_code: 'DUPLICATE_PLATES',
+      });
+    }
+
+    const result = await importCars(validRows);
+
+    await logAudit({
+      entityType: 'car',
+      entityId: req.user.userId,
+      action: 'import',
+      newValue: { count: result.count },
+      performedBy: req.user.userId,
+      ipAddress: req.ip,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: { imported: result.count },
+      message: `تم استيراد ${result.count} عربية بنجاح`,
+    });
   } catch (err) {
     next(err);
   }

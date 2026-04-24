@@ -128,3 +128,83 @@ export async function getCarAuditLog(carId) {
     include: { performer: { select: { id: true, fullName: true } } },
   });
 }
+
+export async function listArchivedCars(filters = {}) {
+  const { page = 1, limit = 20, search, status } = filters;
+
+  const validArchiveStatuses = ['sold', 'withdrawn'];
+  const statusFilter = status && validArchiveStatuses.includes(status)
+    ? status
+    : { in: validArchiveStatuses };
+
+  const where = { status: statusFilter };
+
+  if (search) {
+    where.OR = [
+      { carType: { contains: search, mode: 'insensitive' } },
+      { model: { contains: search, mode: 'insensitive' } },
+      { plateNumber: { contains: search, mode: 'insensitive' } },
+      { sellerName: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const skip = (page - 1) * limit;
+  const [cars, total] = await Promise.all([
+    prisma.car.findMany({
+      where,
+      skip,
+      take: Number(limit),
+      select: CAR_LIST_SELECT,
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.car.count({ where }),
+  ]);
+
+  return { cars, total };
+}
+
+export async function importCars(rows) {
+  return prisma.car.createMany({ data: rows, skipDuplicates: false });
+}
+
+export async function listAllCars(filters = {}) {
+  const {
+    status, car_type, model, transmission, fuel_type,
+    price_min, price_max, odometer_min, odometer_max,
+    search,
+  } = filters;
+
+  const where = {};
+  if (status) where.status = status;
+  if (car_type) where.carType = { contains: car_type, mode: 'insensitive' };
+  if (model) where.model = { contains: model, mode: 'insensitive' };
+  if (transmission) where.transmission = transmission;
+  if (fuel_type) where.fuelType = fuel_type;
+
+  if (price_min !== undefined || price_max !== undefined) {
+    where.listingPrice = {};
+    if (price_min !== undefined) where.listingPrice.gte = Number(price_min);
+    if (price_max !== undefined) where.listingPrice.lte = Number(price_max);
+  }
+
+  if (odometer_min !== undefined || odometer_max !== undefined) {
+    where.odometer = {};
+    if (odometer_min !== undefined) where.odometer.gte = Number(odometer_min);
+    if (odometer_max !== undefined) where.odometer.lte = Number(odometer_max);
+  }
+
+  if (search) {
+    where.OR = [
+      { carType: { contains: search, mode: 'insensitive' } },
+      { model: { contains: search, mode: 'insensitive' } },
+      { additionalInfo: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  return prisma.car.findMany({
+    where,
+    select: CAR_LIST_SELECT,
+    orderBy: { createdAt: 'desc' },
+    take: 10000,
+  });
+}

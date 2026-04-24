@@ -190,3 +190,49 @@ Living document. Seeded from [MASTER_PLAN.md](../docs/MASTER_PLAN.md) §16. Each
 - `car:status_changed` to a non-`available` status → public Cars page removes it from state and decrements `total`
 - Public CarDetail currently viewing a car that just got sold → error banner replaces the detail UI rather than 500
 - Settings updated via UI → `settings:updated` emitted only to `dashboard` room except `numeral_system` and `buyer_can_attach_car` which are public-visible
+
+## Phase 6 — Discovered During Implementation
+
+### Archive
+- Archive route `/cars/archive` must be registered **before** `/:id` in cars router to prevent Express matching "archive" as an id param
+- `listArchivedCars` uses `status: { in: ['sold', 'withdrawn'] }` as base + optional `search` OR clause — both conditions always apply (fixed by restructuring `where`)
+- Click on archived car navigates to `/dashboard/cars/:id` (full CarDetail) — same detail page works for read-only audit timeline
+
+### Import / Export
+- Import endpoint receives a JSON array (frontend parses CSV/Excel with papaparse/xlsx before submitting) — backend validates and calls `createMany`
+- `listing_price` or `odometer` with decimal values (e.g. "150.5") → `parseImportInt` strips comma separators but rejects non-integers (`isNaN` check); frontend shows per-row errors before server request
+- Duplicate plate numbers within the same import batch (not DB duplicates) caught in backend before `createMany` — returns `DUPLICATE_PLATES`
+- Import batch > 500 rows → 400 `TOO_MANY_ROWS` (performance guard)
+- `xlsx` library parses numeric cells as JS numbers (not strings) — `String(val).trim()` in `processRows` normalises all values before validation
+- Export streams ExcelJS workbook directly to response (`workbook.xlsx.write(res)`) — no temp file; `Content-Disposition` triggers browser download
+- Export with zero matching rows → valid empty xlsx with header row (no crash)
+
+### Dashboard Stats
+- `prisma.sale.aggregate._sum.dealershipRevenue` returns `null` when no rows exist — guarded with `?? 0` in controller
+- Stats endpoint at `/dashboard/stats` is auth-protected but no RBAC module check — SuperAdmin/Admin check is enforced on the frontend only (stats are non-sensitive count data)
+
+### Team Stats
+- `prisma.contactRequest.groupBy` with empty `employeeIds` array → Prisma returns `[]` safely; `Object.fromEntries` produces empty map, employees get 0 counts
+- Accept rate bar width is a percentage from 0–100 via inline `style={{ width: ... }}` — `null` acceptRate skipped (no sessions case shows message instead of bar)
+
+### Toast System
+- `ToastProvider` must wrap `ErrorBoundary` (or be a sibling outside it) — placed as outermost wrapper in `App.jsx` so error boundaries can still show toasts
+- Auto-dismiss uses `setTimeout` inside `addToast` — IDs are monotonic counter (not Date.now) to avoid collision on rapid-fire toasts
+- `duration: 0` option suppresses auto-dismiss for persistent toasts
+
+### Error Boundary
+- `ErrorBoundary` is a class component (hooks can't catch render errors) — `handleRetry` resets state to re-render children
+- Wraps entire `<Suspense>` subtree in `App.jsx` — individual route boundaries can be added per-page if needed
+
+### React.lazy + Suspense
+- All dashboard pages are lazy-loaded; initial load fetches only `PublicLayout` + one public page
+- `cars/import` and `cars/:id` routes are at the same nesting level — React Router matches `cars/import` first because it's defined before `cars/:id` in the route config
+- `<PageLoader />` fallback shown during chunk fetch — uses CSS animation, no heavy imports
+
+### Static Pages
+- `/terms` and `/privacy` are under `PublicLayout` (with navbar/footer) — footer links to both pages
+- `/404` (NotFound) renders outside any layout with its own full-screen centered UI — no auth required
+
+### Mobile
+- Bottom nav shows max 5 items (first 5 visible nav items the user has access to) — new "Team" and "Archive" nav items push older items past position 5 for roles with fewer permissions
+- `pb-24 md:pb-6` on `<main>` in DashboardLayout provides safe zone above the bottom nav bar on mobile

@@ -1,20 +1,41 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, KeyRound, X, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, KeyRound, X, Check, Users as UsersIcon } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useToast } from '../../context/ToastContext.jsx';
+import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx';
+import { SkeletonRow } from '../../components/ui/Skeleton.jsx';
 
-const ROLE_NAMES = { superadmin: 'مدير النظام', admin: 'شريك', cfo: 'مدير حسابات', team_manager: 'مدير فريق', employee: 'موظف' };
+const ROLE_NAMES = {
+  superadmin:   'مدير النظام',
+  admin:        'شريك',
+  cfo:          'مدير حسابات',
+  team_manager: 'مدير فريق',
+  employee:     'موظف',
+};
+
 const STATUS_LABELS = { available: 'متاح', busy: 'مشغول', offline: 'غير متاح' };
-const STATUS_COLORS = { available: 'bg-green-100 text-green-700', busy: 'bg-orange-100 text-orange-700', offline: 'bg-gray-100 text-gray-500' };
+const STATUS_COLORS = {
+  available: 'bg-green-100 text-green-700',
+  busy:      'bg-orange-100 text-orange-700',
+  offline:   'bg-gray-100 text-gray-500',
+};
 
 function Modal({ title, onClose, children }) {
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div className="relative bg-surface rounded-lg shadow-lg w-full max-w-md p-6 z-10" dir="rtl">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-primary">
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary" aria-label="إغلاق">
             <X size={20} />
           </button>
         </div>
@@ -24,49 +45,26 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function DeleteConfirm({ user, onConfirm, onClose, loading }) {
-  return (
-    <Modal title="تأكيد الحذف" onClose={onClose}>
-      <p className="text-text-secondary mb-6">
-        هل أنت متأكد إنك عايز تمسح المستخدم <strong className="text-text-primary">{user.fullName}</strong>؟
-        <br /><span className="text-error text-sm">العملية دي مش ممكن ترجعها.</span>
-      </p>
-      <div className="flex gap-3 justify-end">
-        <button onClick={onClose} className="px-4 py-2 text-sm border border-border-muted rounded-sm hover:bg-background">
-          إلغاء
-        </button>
-        <button
-          onClick={onConfirm}
-          disabled={loading}
-          className="px-4 py-2 text-sm bg-error text-white rounded-sm hover:bg-red-600 disabled:opacity-60"
-        >
-          {loading ? 'جاري الحذف…' : 'حذف'}
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
 const EMPTY_FORM = { username: '', fullName: '', password: '', roleId: '' };
 
 export default function Users() {
   const { user: currentUser } = useAuth();
+  const toast = useToast();
   const isSuperAdmin = currentUser?.role?.name === 'superadmin';
 
-  const [users, setUsers]           = useState([]);
-  const [roles, setRoles]           = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState('');
+  const [users, setUsers]   = useState([]);
+  const [roles, setRoles]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState('');
 
-  // Modal states
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
+  const [createOpen, setCreateOpen]     = useState(false);
+  const [editTarget, setEditTarget]     = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [passwordTarget, setPasswordTarget] = useState(null);
 
-  const [form, setForm]             = useState(EMPTY_FORM);
-  const [formError, setFormError]   = useState('');
-  const [saving, setSaving]         = useState(false);
+  const [form, setForm]         = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving]     = useState(false);
   const [newPassword, setNewPassword] = useState('');
 
   const load = useCallback(async () => {
@@ -104,9 +102,15 @@ export default function Users() {
     setFormError('');
     setSaving(true);
     try {
-      await api.post('/users', { username: form.username, fullName: form.fullName, password: form.password, roleId: form.roleId });
+      await api.post('/users', {
+        username: form.username,
+        fullName: form.fullName,
+        password: form.password,
+        roleId: form.roleId,
+      });
       setCreateOpen(false);
       load();
+      toast.success(`تم إنشاء المستخدم "${form.username}" بنجاح`);
     } catch (err) {
       setFormError(err.response?.data?.message || 'فشل الإنشاء');
     } finally {
@@ -122,6 +126,7 @@ export default function Users() {
       await api.put(`/users/${editTarget.id}`, { fullName: form.fullName, roleId: form.roleId });
       setEditTarget(null);
       load();
+      toast.success('تم تحديث بيانات المستخدم بنجاح');
     } catch (err) {
       setFormError(err.response?.data?.message || 'فشل التعديل');
     } finally {
@@ -133,10 +138,12 @@ export default function Users() {
     setSaving(true);
     try {
       await api.delete(`/users/${deleteTarget.id}`);
+      const name = deleteTarget.fullName;
       setDeleteTarget(null);
       load();
+      toast.success(`تم حذف المستخدم "${name}"`);
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل الحذف');
+      toast.error(err.response?.data?.message || 'فشل الحذف');
       setDeleteTarget(null);
     } finally {
       setSaving(false);
@@ -145,20 +152,20 @@ export default function Users() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
+    setFormError('');
     setSaving(true);
     try {
       await api.post(`/users/${passwordTarget.id}/password`, { password: newPassword });
+      const name = passwordTarget.fullName;
       setPasswordTarget(null);
       setNewPassword('');
+      toast.success(`تم تغيير كلمة مرور "${name}" بنجاح`);
     } catch (err) {
       setFormError(err.response?.data?.message || 'فشل تغيير كلمة المرور');
     } finally {
       setSaving(false);
     }
   };
-
-  if (loading) return <div className="text-text-secondary">جاري التحميل…</div>;
-  if (error)   return <div className="text-error">{error}</div>;
 
   return (
     <div dir="rtl">
@@ -175,7 +182,10 @@ export default function Users() {
         )}
       </div>
 
-      {/* Table */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-error rounded-sm p-3 mb-4 text-sm">{error}</div>
+      )}
+
       <div className="bg-surface rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -190,7 +200,26 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-muted">
-              {users.map((u) => (
+              {loading && Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={6} />)}
+
+              {!loading && users.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <UsersIcon size={36} className="mx-auto mb-2 text-text-muted opacity-30" />
+                    <p className="text-text-secondary font-medium">مفيش مستخدمين</p>
+                    {(isSuperAdmin || currentUser?.permissions?.users_create) && (
+                      <button
+                        onClick={openCreate}
+                        className="mt-2 text-primary text-sm hover:underline"
+                      >
+                        أضف أول مستخدم
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )}
+
+              {!loading && users.map((u) => (
                 <tr key={u.id} className="hover:bg-background/50">
                   <td className="px-4 py-3 font-medium text-text-primary">{u.fullName}</td>
                   <td className="px-4 py-3 text-text-secondary">{u.username}</td>
@@ -218,6 +247,7 @@ export default function Users() {
                             onClick={() => { setPasswordTarget(u); setFormError(''); setNewPassword(''); }}
                             className="p-1.5 text-text-muted hover:text-warning transition-colors"
                             title="تغيير كلمة المرور"
+                            aria-label="تغيير كلمة المرور"
                           >
                             <KeyRound size={15} />
                           </button>
@@ -225,6 +255,7 @@ export default function Users() {
                             onClick={() => openEdit(u)}
                             className="p-1.5 text-text-muted hover:text-primary transition-colors"
                             title="تعديل"
+                            aria-label="تعديل المستخدم"
                           >
                             <Pencil size={15} />
                           </button>
@@ -235,6 +266,7 @@ export default function Users() {
                           onClick={() => setDeleteTarget(u)}
                           className="p-1.5 text-text-muted hover:text-error transition-colors"
                           title="حذف"
+                          aria-label="حذف المستخدم"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -243,13 +275,6 @@ export default function Users() {
                   </td>
                 </tr>
               ))}
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
-                    مفيش مستخدمين
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -287,7 +312,7 @@ export default function Users() {
 
       {/* Reset password modal */}
       {passwordTarget && (
-        <Modal title={`تغيير كلمة مرور ${passwordTarget.fullName}`} onClose={() => setPasswordTarget(null)}>
+        <Modal title={`تغيير كلمة مرور: ${passwordTarget.fullName}`} onClose={() => setPasswordTarget(null)}>
           <form onSubmit={handleResetPassword} className="space-y-4">
             <Field label="كلمة المرور الجديدة" value={newPassword} onChange={setNewPassword} type="password" required />
             {formError && <p className="text-error text-sm">{formError}</p>}
@@ -297,14 +322,17 @@ export default function Users() {
       )}
 
       {/* Delete confirm */}
-      {deleteTarget && (
-        <DeleteConfirm
-          user={deleteTarget}
-          onConfirm={handleDelete}
-          onClose={() => setDeleteTarget(null)}
-          loading={saving}
-        />
-      )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="تأكيد الحذف"
+        message={deleteTarget ? `هل أنت متأكد إنك عايز تمسح "${deleteTarget.fullName}"؟ العملية دي مش ممكن ترجعها.` : ''}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        confirmLabel="حذف"
+        cancelLabel="إلغاء"
+        danger
+        loading={saving}
+      />
     </div>
   );
 }
@@ -346,13 +374,17 @@ function RoleSelect({ roles, value, onChange }) {
 function ModalActions({ onClose, saving, label }) {
   return (
     <div className="flex gap-3 justify-end pt-2">
-      <button type="button" onClick={onClose} className="px-4 py-2 text-sm border border-border-muted rounded-sm hover:bg-background">
+      <button
+        type="button"
+        onClick={onClose}
+        className="px-4 py-2 text-sm border border-border-muted rounded-sm hover:bg-background transition-colors"
+      >
         إلغاء
       </button>
       <button
         type="submit"
         disabled={saving}
-        className="px-4 py-2 text-sm bg-primary text-white rounded-sm hover:bg-primary-dark disabled:opacity-60"
+        className="px-4 py-2 text-sm bg-primary text-white rounded-sm hover:bg-primary-dark disabled:opacity-60 transition-colors"
       >
         {saving ? 'جاري الحفظ…' : label}
       </button>

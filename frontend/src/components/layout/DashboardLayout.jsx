@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ShieldCheck, Car, BarChart2,
-  Settings, Archive, Activity, DollarSign,
+  Settings, Archive, Activity, DollarSign, TrendingUp,
   ChevronRight, ChevronLeft, LogOut, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -13,15 +13,16 @@ import ActiveSessionPanel from '../shared/ActiveSessionPanel.jsx';
 import PushPermissionBanner from '../shared/PushPermissionBanner.jsx';
 
 const NAV_ITEMS = [
-  { to: '/dashboard',           label: 'الرئيسية',      icon: LayoutDashboard, end: true,  module: null },
-  { to: '/dashboard/users',     label: 'المستخدمين',    icon: Users,           end: false, module: 'users_view' },
-  { to: '/dashboard/permissions', label: 'الصلاحيات',  icon: ShieldCheck,     end: false, module: 'permissions_manage' },
-  { to: '/dashboard/cars',      label: 'العربيات',      icon: Car,             end: false, module: 'cars_view' },
-  { to: '/dashboard/financial', label: 'الماليات',      icon: DollarSign,      end: false, module: 'financial_view' },
-  { to: '/dashboard/reports',   label: 'التقارير',      icon: BarChart2,       end: false, module: 'reports_view' },
-  { to: '/dashboard/monitor',   label: 'مراقبة الموظفين', icon: Activity,      end: false, module: 'employee_monitor' },
-  { to: '/dashboard/archive',   label: 'الأرشيف',       icon: Archive,         end: false, module: 'archive_view' },
-  { to: '/dashboard/settings',  label: 'الإعدادات',     icon: Settings,        end: false, module: 'settings_view' },
+  { to: '/dashboard',             label: 'الرئيسية',        icon: LayoutDashboard, end: true,  module: null },
+  { to: '/dashboard/users',       label: 'المستخدمين',      icon: Users,           end: false, module: 'users_view' },
+  { to: '/dashboard/permissions', label: 'الصلاحيات',       icon: ShieldCheck,     end: false, module: 'permissions_manage' },
+  { to: '/dashboard/cars',        label: 'العربيات',         icon: Car,             end: false, module: 'cars_view' },
+  { to: '/dashboard/financial',   label: 'الماليات',         icon: DollarSign,      end: false, module: 'financial_view' },
+  { to: '/dashboard/reports',     label: 'التقارير',         icon: BarChart2,       end: false, module: 'reports_view' },
+  { to: '/dashboard/monitor',     label: 'مراقبة الموظفين', icon: Activity,        end: false, module: 'employee_monitor' },
+  { to: '/dashboard/team',        label: 'إحصائيات الفريق', icon: TrendingUp,      end: false, module: 'employee_monitor' },
+  { to: '/dashboard/archive',     label: 'الأرشيف',          icon: Archive,         end: false, module: 'archive_view' },
+  { to: '/dashboard/settings',    label: 'الإعدادات',        icon: Settings,        end: false, module: 'settings_view' },
 ];
 
 function canSeeItem(item, user) {

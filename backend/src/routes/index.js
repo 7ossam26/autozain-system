@@ -10,6 +10,7 @@ import queueRouter from './queue.js';
 import pushRouter from './push.js';
 import depositsRouter from './deposits.js';
 import salesRouter from './sales.js';
+import dashboardRouter from './dashboard.js';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/queue',             queueRouter);
 router.use('/push',              pushRouter);
 router.use('/deposits',          depositsRouter);
 router.use('/sales',             salesRouter);
+router.use('/dashboard',         dashboardRouter);
 
 export default router;

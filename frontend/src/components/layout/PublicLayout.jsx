@@ -85,8 +85,13 @@ export default function PublicLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-secondary text-white/80 py-6 text-center text-sm">
-        أوتوزين © {new Date().getFullYear()}
+      <footer className="bg-secondary text-white/80 py-6 text-center text-sm" dir="rtl">
+        <p className="mb-2">أوتوزين © {new Date().getFullYear()}</p>
+        <div className="flex items-center justify-center gap-4 text-white/60 text-xs">
+          <Link to="/terms"   className="hover:text-white transition-colors">الشروط والأحكام</Link>
+          <span>·</span>
+          <Link to="/privacy" className="hover:text-white transition-colors">سياسة الخصوصية</Link>
+        </div>
       </footer>
     </div>
   );
